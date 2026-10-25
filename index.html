@@ -1,103 +1,272 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#050b16">
 <title>LEVIL AI Assistant</title>
+
 <style>
-*{box-sizing:border-box}
-body{
-  margin:0;min-height:100vh;background:#050b16;color:#eaf8ff;
-  font-family:Arial,sans-serif;display:flex;justify-content:center;
-  align-items:center;padding:20px
+* {
+  box-sizing: border-box;
 }
-.app{width:100%;max-width:440px;text-align:center}
-h1{letter-spacing:8px;color:#54dfff;font-size:34px}
-p{color:#9db9ca}
-.orb{
-  width:180px;height:180px;margin:28px auto;border-radius:50%;
-  border:2px solid #40cfff;
-  box-shadow:0 0 25px #0879a5,inset 0 0 30px #0879a5;
-  display:flex;align-items:center;justify-content:center;
-  font-size:60px;color:#69e7ff
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #050b16;
+  color: #eaf8ff;
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
 }
-.listening{animation:pulse 1s infinite}
-@keyframes pulse{
-  50%{box-shadow:0 0 55px #00cfff,inset 0 0 40px #00cfff}
+
+.app {
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
 }
-button,input{
-  width:100%;padding:14px;margin:7px 0;border-radius:12px;
-  font-size:16px
+
+h1 {
+  letter-spacing: 8px;
+  color: #54dfff;
+  font-size: 36px;
+  text-shadow: 0 0 18px #0879a5;
 }
-button{
-  background:#102d44;color:#70e5ff;border:1px solid #36bfe9;
-  cursor:pointer
+
+p {
+  color: #9db9ca;
 }
-input{background:#0c1725;color:white;border:1px solid #28516a}
-#status{color:#5ee4ff;min-height:24px}
-#reply{line-height:1.6;overflow-wrap:anywhere}
-.small{font-size:12px;color:#8299a9}
+
+.orb {
+  width: 180px;
+  height: 180px;
+  margin: 28px auto;
+  border-radius: 50%;
+  border: 2px solid #40cfff;
+  box-shadow: 0 0 25px #0879a5, inset 0 0 30px #0879a5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+  color: #69e7ff;
+  transition: 0.3s;
+}
+
+.listening {
+  animation: pulse 1s infinite;
+}
+
+.thinking {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 55px #00cfff, inset 0 0 40px #00cfff;
+    transform: scale(1.03);
+  }
+}
+
+button,
+input {
+  width: 100%;
+  padding: 14px;
+  margin: 7px 0;
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+button {
+  background: #102d44;
+  color: #70e5ff;
+  border: 1px solid #36bfe9;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #17415e;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+input {
+  background: #0c1725;
+  color: white;
+  border: 1px solid #28516a;
+}
+
+#status {
+  color: #5ee4ff;
+  min-height: 24px;
+  overflow-wrap: anywhere;
+}
+
+#reply {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.small {
+  font-size: 12px;
+  color: #8299a9;
+}
 </style>
 </head>
+
 <body>
 <div class="app">
+
   <h1>LEVIL</h1>
   <p>YOUR PERSONAL AI ASSISTANT</p>
+
   <div class="orb" id="orb">◉</div>
+
   <div id="status">Ready to assist you</div>
-  <p id="reply">Hello! I am LEVIL. Tap the microphone and talk to me.</p>
-  <button onclick="listen()">🎙 TALK TO LEVIL</button>
-  <input id="message" placeholder="Or type a command here">
-  <button onclick="sendText()">SEND MESSAGE</button>
-  <button onclick="stopVoice()">🔇 STOP SPEAKING</button>
-  <p class="small">LEVIL prototype · Voice recognition requires browser support.</p>
+
+  <p id="reply">
+    Hello! I am LEVIL. Type a question or tap the microphone to talk to me.
+  </p>
+
+  <button id="talkButton" onclick="listen()">
+    🎙 TALK TO LEVIL
+  </button>
+
+  <input
+    id="message"
+    type="text"
+    placeholder="Ask LEVIL anything..."
+    autocomplete="off"
+  >
+
+  <button id="sendButton" onclick="sendText()">
+    SEND MESSAGE
+  </button>
+
+  <button onclick="stopVoice()">
+    🔇 STOP SPEAKING
+  </button>
+
+  <p class="small">
+    LEVIL prototype · Internet connection required for AI answers.
+    Microphone support depends on your browser.
+  </p>
+
 </div>
 
 <script>
+"use strict";
+
+// LEVIL AI backend
+const AI_URL =
+  "https://levil-ai.sathiya-sowmiyan06012009.workers.dev/";
+
+// Page elements
 const statusBox = document.getElementById("status");
 const replyBox = document.getElementById("reply");
 const orb = document.getElementById("orb");
+const messageBox = document.getElementById("message");
+const talkButton = document.getElementById("talkButton");
+const sendButton = document.getElementById("sendButton");
 
-let recognition;
+// Voice and conversation settings
+let recognition = null;
 let voices = [];
+let conversationHistory = [];
+let requestInProgress = false;
 
+// Load available speech voices
 function loadVoices() {
-  voices = window.speechSynthesis.getVoices();
+  voices = window.speechSynthesis
+    ? window.speechSynthesis.getVoices()
+    : [];
 }
-loadVoices();
-window.speechSynthesis.onvoiceschanged = loadVoices;
 
+if ("speechSynthesis" in window) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+// Speak a reply aloud
 function speak(text) {
-  window.speechSynthesis.cancel();
   replyBox.textContent = text;
+
+  if (!("speechSynthesis" in window)) {
+    return;
+  }
+
+  window.speechSynthesis.cancel();
 
   const speech = new SpeechSynthesisUtterance(text);
   speech.lang = "en-IN";
   speech.rate = 0.95;
   speech.pitch = 1.12;
 
-  const femaleVoice = voices.find(v =>
-    /female|zira|samantha|karen|susan|heera|google.*female/i
-      .test(v.name)
-  ) || voices.find(v => v.lang === "en-IN");
+  const preferredVoice = voices.find(v =>
+    /female|zira|samantha|karen|susan|heera/i.test(v.name)
+    && /^en/i.test(v.lang)
+  );
 
-  if (femaleVoice) speech.voice = femaleVoice;
+  const IndianEnglishVoice = voices.find(v =>
+    /^en-IN$/i.test(v.lang)
+  );
+
+  const EnglishVoice = voices.find(v =>
+    /^en/i.test(v.lang)
+  );
+
+  const selectedVoice =
+    preferredVoice || IndianEnglishVoice || EnglishVoice;
+
+  if (selectedVoice) {
+    speech.voice = selectedVoice;
+  }
+
+  speech.onstart = () => {
+    statusBox.textContent = "LEVIL is speaking...";
+  };
+
+  speech.onend = () => {
+    if (!requestInProgress) {
+      statusBox.textContent = "Ready to assist you";
+    }
+  };
+
+  speech.onerror = () => {
+    if (!requestInProgress) {
+      statusBox.textContent = "Ready to assist you";
+    }
+  };
 
   window.speechSynthesis.speak(speech);
 }
 
+// Start microphone listening
 function listen() {
   const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
-    speak("Voice recognition is not supported in this browser. Please try Google Chrome.");
+    speak(
+      "Voice recognition is not supported in this browser. " +
+      "Please try Google Chrome, or type your question instead."
+    );
     return;
   }
 
   if (recognition) {
-    try { recognition.abort(); } catch(e) {}
+    try {
+      recognition.abort();
+    } catch (error) {
+      // No action needed.
+    }
   }
 
   recognition = new SpeechRecognition();
@@ -108,75 +277,105 @@ function listen() {
   recognition.onstart = () => {
     statusBox.textContent = "Listening to you...";
     orb.classList.add("listening");
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
   };
 
   recognition.onresult = event => {
-    const text = event.results[0][0].transcript;
-    statusBox.textContent = "You said: " + text;
-    processCommand(text);
+    const spokenText = event.results[0][0].transcript;
+
+    messageBox.value = spokenText;
+    statusBox.textContent = "You said: " + spokenText;
+
+    processCommand(spokenText);
   };
 
   recognition.onerror = event => {
-    statusBox.textContent = "Microphone issue: " + event.error;
+    statusBox.textContent =
+      "Microphone issue: " + event.error;
+
     orb.classList.remove("listening");
   };
 
   recognition.onend = () => {
     orb.classList.remove("listening");
-    if (statusBox.textContent === "Listening to you...") {
+
+    if (
+      statusBox.textContent === "Listening to you..."
+    ) {
       statusBox.textContent = "Ready to assist you";
     }
   };
 
   try {
     recognition.start();
-  } catch(e) {
-    statusBox.textContent = "Please tap the microphone again.";
+  } catch (error) {
+    statusBox.textContent =
+      "Please tap the microphone again.";
   }
 }
 
+// Send a typed message
 function sendText() {
-  const text = document.getElementById("message").value.trim();
-  if (!text) return;
-  statusBox.textContent = "Command: " + text;
+  const text = messageBox.value.trim();
+
+  if (!text) {
+    statusBox.textContent = "Please type a question first.";
+    return;
+  }
+
   processCommand(text);
 }
 
-function processCommand(input) {
-  const text = input.toLowerCase().trim();
+// Handle commands and AI questions
+async function processCommand(input) {
+  const originalText = input.trim();
+  const text = originalText.toLowerCase();
 
-  if (text.includes("stop speaking") || text === "stop") {
+  if (!originalText || requestInProgress) {
+    return;
+  }
+
+  // Stop speaking
+  if (text === "stop" || text.includes("stop speaking")) {
     stopVoice();
     return;
   }
 
-  if (text.includes("what time") || text === "time") {
-    speak("The time is " + new Date().toLocaleTimeString("en-IN"));
+  // Tell the time
+  if (
+    text.includes("what time") ||
+    text === "time" ||
+    text.includes("current time")
+  ) {
+    speak(
+      "The time is " +
+      new Date().toLocaleTimeString("en-IN")
+    );
     return;
   }
 
-  if (text.includes("what date") || text.includes("today's date")) {
-    speak("Today is " + new Date().toLocaleDateString("en-IN", {
-      weekday:"long", year:"numeric", month:"long", day:"numeric"
-    }));
+  // Tell the date
+  if (
+    text.includes("what date") ||
+    text.includes("today's date") ||
+    text.includes("what day is it")
+  ) {
+    speak(
+      "Today is " +
+      new Date().toLocaleDateString("en-IN", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      })
+    );
     return;
   }
 
-  if (text.includes("hello") || text.includes("hi levil")) {
-    speak("Hello! I am LEVIL, your personal assistant. How can I help you?");
-    return;
-  }
-
-  if (text.includes("your name") || text.includes("who are you")) {
-    speak("My name is LEVIL. I am your personal voice assistant.");
-    return;
-  }
-
-  if (text.includes("how are you")) {
-    speak("I am functioning perfectly. Thank you for asking!");
-    return;
-  }
-
+  // Open supported websites
   if (text.includes("open youtube")) {
     speak("Opening YouTube.");
     window.open("https://www.youtube.com/", "_blank");
@@ -184,7 +383,7 @@ function processCommand(input) {
   }
 
   if (text.includes("open whatsapp")) {
-    speak("Opening WhatsApp.");
+    speak("Opening WhatsApp Web.");
     window.open("https://web.whatsapp.com/", "_blank");
     return;
   }
@@ -195,33 +394,142 @@ function processCommand(input) {
     return;
   }
 
+  // Search Google
   if (text.startsWith("search for ")) {
-    const query = text.substring(11).trim();
-    speak("Searching Google for " + query);
-    window.open(
-      "https://www.google.com/search?q=" + encodeURIComponent(query),
-      "_blank"
+    const query = originalText.substring(11).trim();
+
+    if (query) {
+      speak("Searching Google for " + query);
+
+      window.open(
+        "https://www.google.com/search?q=" +
+        encodeURIComponent(query),
+        "_blank"
+      );
+    }
+
+    return;
+  }
+
+  // Ask the AI backend
+  requestInProgress = true;
+  sendButton.disabled = true;
+  talkButton.disabled = true;
+
+  statusBox.textContent = "LEVIL is thinking...";
+  orb.classList.add("thinking");
+
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+
+  try {
+    const response = await fetch(AI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: originalText,
+        history: conversationHistory.slice(-8)
+      })
+    });
+
+    let data;
+
+    try {
+      data = await response.json();
+    } catch (error) {
+      throw new Error(
+        "The AI server returned an unreadable response."
+      );
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Server error: " + response.status
+      );
+    }
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    if (
+      typeof data.reply !== "string" ||
+      !data.reply.trim()
+    ) {
+      throw new Error(
+        "The AI did not return an answer."
+      );
+    }
+
+    const answer = data.reply.trim();
+
+    // Keep recent conversation context
+    conversationHistory.push(
+      {
+        role: "user",
+        content: originalText
+      },
+      {
+        role: "assistant",
+        content: answer
+      }
     );
-    return;
-  }
 
-  if (text.includes("what can you do")) {
-    speak("I can tell you the time and date, greet you, open supported websites, and search Google. More features can be added.");
-    return;
-  }
+    conversationHistory =
+      conversationHistory.slice(-8);
 
-  speak("I heard you say: " + input +
-        ". I do not know that command yet. You can ask me for the time, or tell me to open YouTube.");
+    statusBox.textContent = "LEVIL is ready";
+    speak(answer);
+
+  } catch (error) {
+    console.error("LEVIL AI error:", error);
+
+    statusBox.textContent = "AI connection failed";
+
+    replyBox.textContent =
+      "I couldn't connect to my AI brain. " +
+      "Please check your internet connection and try again. " +
+      "If the problem continues, the AI backend may need fixing.";
+
+  } finally {
+    requestInProgress = false;
+    sendButton.disabled = false;
+    talkButton.disabled = false;
+    orb.classList.remove("thinking");
+    orb.classList.remove("listening");
+  }
 }
 
+// Stop voice output and microphone
 function stopVoice() {
-  window.speechSynthesis.cancel();
-  if (recognition) {
-    try { recognition.abort(); } catch(e) {}
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
   }
+
+  if (recognition) {
+    try {
+      recognition.abort();
+    } catch (error) {
+      // No action needed.
+    }
+  }
+
   orb.classList.remove("listening");
+  orb.classList.remove("thinking");
   statusBox.textContent = "Voice stopped";
 }
+
+// Allow Enter to send a message
+messageBox.addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    sendText();
+  }
+});
 </script>
+
 </body>
 </html>
