@@ -1,0 +1,227 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEVIL AI Assistant</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;background:#050b16;color:#eaf8ff;
+  font-family:Arial,sans-serif;display:flex;justify-content:center;
+  align-items:center;padding:20px
+}
+.app{width:100%;max-width:440px;text-align:center}
+h1{letter-spacing:8px;color:#54dfff;font-size:34px}
+p{color:#9db9ca}
+.orb{
+  width:180px;height:180px;margin:28px auto;border-radius:50%;
+  border:2px solid #40cfff;
+  box-shadow:0 0 25px #0879a5,inset 0 0 30px #0879a5;
+  display:flex;align-items:center;justify-content:center;
+  font-size:60px;color:#69e7ff
+}
+.listening{animation:pulse 1s infinite}
+@keyframes pulse{
+  50%{box-shadow:0 0 55px #00cfff,inset 0 0 40px #00cfff}
+}
+button,input{
+  width:100%;padding:14px;margin:7px 0;border-radius:12px;
+  font-size:16px
+}
+button{
+  background:#102d44;color:#70e5ff;border:1px solid #36bfe9;
+  cursor:pointer
+}
+input{background:#0c1725;color:white;border:1px solid #28516a}
+#status{color:#5ee4ff;min-height:24px}
+#reply{line-height:1.6;overflow-wrap:anywhere}
+.small{font-size:12px;color:#8299a9}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>LEVIL</h1>
+  <p>YOUR PERSONAL AI ASSISTANT</p>
+  <div class="orb" id="orb">◉</div>
+  <div id="status">Ready to assist you</div>
+  <p id="reply">Hello! I am LEVIL. Tap the microphone and talk to me.</p>
+  <button onclick="listen()">🎙 TALK TO LEVIL</button>
+  <input id="message" placeholder="Or type a command here">
+  <button onclick="sendText()">SEND MESSAGE</button>
+  <button onclick="stopVoice()">🔇 STOP SPEAKING</button>
+  <p class="small">LEVIL prototype · Voice recognition requires browser support.</p>
+</div>
+
+<script>
+const statusBox = document.getElementById("status");
+const replyBox = document.getElementById("reply");
+const orb = document.getElementById("orb");
+
+let recognition;
+let voices = [];
+
+function loadVoices() {
+  voices = window.speechSynthesis.getVoices();
+}
+loadVoices();
+window.speechSynthesis.onvoiceschanged = loadVoices;
+
+function speak(text) {
+  window.speechSynthesis.cancel();
+  replyBox.textContent = text;
+
+  const speech = new SpeechSynthesisUtterance(text);
+  speech.lang = "en-IN";
+  speech.rate = 0.95;
+  speech.pitch = 1.12;
+
+  const femaleVoice = voices.find(v =>
+    /female|zira|samantha|karen|susan|heera|google.*female/i
+      .test(v.name)
+  ) || voices.find(v => v.lang === "en-IN");
+
+  if (femaleVoice) speech.voice = femaleVoice;
+
+  window.speechSynthesis.speak(speech);
+}
+
+function listen() {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    speak("Voice recognition is not supported in this browser. Please try Google Chrome.");
+    return;
+  }
+
+  if (recognition) {
+    try { recognition.abort(); } catch(e) {}
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = "en-IN";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    statusBox.textContent = "Listening to you...";
+    orb.classList.add("listening");
+  };
+
+  recognition.onresult = event => {
+    const text = event.results[0][0].transcript;
+    statusBox.textContent = "You said: " + text;
+    processCommand(text);
+  };
+
+  recognition.onerror = event => {
+    statusBox.textContent = "Microphone issue: " + event.error;
+    orb.classList.remove("listening");
+  };
+
+  recognition.onend = () => {
+    orb.classList.remove("listening");
+    if (statusBox.textContent === "Listening to you...") {
+      statusBox.textContent = "Ready to assist you";
+    }
+  };
+
+  try {
+    recognition.start();
+  } catch(e) {
+    statusBox.textContent = "Please tap the microphone again.";
+  }
+}
+
+function sendText() {
+  const text = document.getElementById("message").value.trim();
+  if (!text) return;
+  statusBox.textContent = "Command: " + text;
+  processCommand(text);
+}
+
+function processCommand(input) {
+  const text = input.toLowerCase().trim();
+
+  if (text.includes("stop speaking") || text === "stop") {
+    stopVoice();
+    return;
+  }
+
+  if (text.includes("what time") || text === "time") {
+    speak("The time is " + new Date().toLocaleTimeString("en-IN"));
+    return;
+  }
+
+  if (text.includes("what date") || text.includes("today's date")) {
+    speak("Today is " + new Date().toLocaleDateString("en-IN", {
+      weekday:"long", year:"numeric", month:"long", day:"numeric"
+    }));
+    return;
+  }
+
+  if (text.includes("hello") || text.includes("hi levil")) {
+    speak("Hello! I am LEVIL, your personal assistant. How can I help you?");
+    return;
+  }
+
+  if (text.includes("your name") || text.includes("who are you")) {
+    speak("My name is LEVIL. I am your personal voice assistant.");
+    return;
+  }
+
+  if (text.includes("how are you")) {
+    speak("I am functioning perfectly. Thank you for asking!");
+    return;
+  }
+
+  if (text.includes("open youtube")) {
+    speak("Opening YouTube.");
+    window.open("https://www.youtube.com/", "_blank");
+    return;
+  }
+
+  if (text.includes("open whatsapp")) {
+    speak("Opening WhatsApp.");
+    window.open("https://web.whatsapp.com/", "_blank");
+    return;
+  }
+
+  if (text.includes("open google")) {
+    speak("Opening Google.");
+    window.open("https://www.google.com/", "_blank");
+    return;
+  }
+
+  if (text.startsWith("search for ")) {
+    const query = text.substring(11).trim();
+    speak("Searching Google for " + query);
+    window.open(
+      "https://www.google.com/search?q=" + encodeURIComponent(query),
+      "_blank"
+    );
+    return;
+  }
+
+  if (text.includes("what can you do")) {
+    speak("I can tell you the time and date, greet you, open supported websites, and search Google. More features can be added.");
+    return;
+  }
+
+  speak("I heard you say: " + input +
+        ". I do not know that command yet. You can ask me for the time, or tell me to open YouTube.");
+}
+
+function stopVoice() {
+  window.speechSynthesis.cancel();
+  if (recognition) {
+    try { recognition.abort(); } catch(e) {}
+  }
+  orb.classList.remove("listening");
+  statusBox.textContent = "Voice stopped";
+}
+</script>
+</body>
+</html>
